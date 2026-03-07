@@ -1,0 +1,7 @@
+pandas
+requests
+beautifulsoup4
+jupyter
+python-dotenv
+openai
+anthropic

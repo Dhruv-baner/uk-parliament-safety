@@ -1,0 +1,15 @@
+venv/
+.venv/
+.env
+__pycache__/
+*.pyc
+
+# Ignore data contents but keep the folder structure
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/output/*
+!data/output/.gitkeep
+
+.ipynb_checkpoints/
