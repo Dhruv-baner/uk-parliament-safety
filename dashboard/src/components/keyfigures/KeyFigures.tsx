@@ -251,29 +251,6 @@ export default function KeyFigures() {
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid-4">
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div className="stat-number">{KEY_FIGURES.length}</div>
-          <div className="stat-label">Key figures tracked</div>
-        </div>
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div className="stat-number">{government.length}</div>
-          <div className="stat-label">Government ministers</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Current & recent</div>
-        </div>
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div className="stat-number">{parliament.length}</div>
-          <div className="stat-label">Parliamentary voices</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Committees & advocates</div>
-        </div>
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div className="stat-number">{totalSpeeches}</div>
-          <div className="stat-label">Total AI speeches</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Across all figures</div>
-        </div>
-      </div>
-
       {/* Filter */}
       <div style={{ display: 'flex', gap: 6 }}>
         {[['all', 'All'], ['government', 'Government'], ['parliament', 'Parliament']].map(([v, l]) => (

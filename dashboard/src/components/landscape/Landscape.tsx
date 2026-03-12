@@ -1,6 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import rawData from '../../data/debates_2026.json'
 
 const PARTY_COLOURS = {
@@ -51,26 +51,98 @@ function dominantStance(stances) {
   return Object.entries(c).sort((a, b) => b[1] - a[1])[0][0]
 }
 
-// --- STAT CARD ---
-function StatCard({ number, label, sub, icon, accent = '#4F7FFF' }) {
+// --- ROTATING STAT CARD ---
+function RotatingStatCard({ stats, proSafetyPct }) {
+  const [idx, setIdx] = useState(0)
+  const [visible, setVisible] = useState(true)
+
+  const items = [
+    { value: stats.total, label: 'AI-Relevant Speeches', sub: 'January – March 2026', accent: '#4F7FFF' },
+    { value: `${proSafetyPct}%`, label: 'Pro-Safety Voices', sub: `${stats.proSafety} speeches classified pro-safety`, accent: '#34D399' },
+    { value: stats.existential, label: 'Mention Existential Risk', sub: 'Frontier-aware parliamentarians', accent: '#EF4444' },
+    { value: stats.speakers, label: 'Unique Speakers', sub: 'Across Commons and Lords', accent: '#8B5CF6' },
+  ]
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisible(false)
+      setTimeout(() => {
+        setIdx(i => (i + 1) % items.length)
+        setVisible(true)
+      }, 300)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const item = items[idx]
+
   return (
     <div style={{
       background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 14, padding: '20px 22px',
-      position: 'relative', overflow: 'hidden',
-      transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
-      cursor: 'default',
-    }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px ${accent}44`; e.currentTarget.style.borderColor = `${accent}66` }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)' }}
-    >
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, ${accent}44)` }} />
-      <div style={{ position: 'absolute', top: -20, right: -10, width: 80, height: 80, borderRadius: '50%', background: `${accent}08` }} />
-      <div style={{ fontSize: 24, marginBottom: 12 }}>{icon}</div>
-      <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-2px', color: 'var(--text-1)', lineHeight: 1 }}>{number}</div>
-      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)', marginTop: 8 }}>{label}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>{sub}</div>}
+      border: `1px solid ${item.accent}44`,
+      borderRadius: 20,
+      padding: '32px 36px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 32,
+      boxShadow: `0 0 32px ${item.accent}18`,
+      transition: 'border-color 0.4s, box-shadow 0.4s',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Background glow */}
+      <div style={{
+        position: 'absolute', top: -40, right: -40,
+        width: 180, height: 180, borderRadius: '50%',
+        background: `radial-gradient(circle, ${item.accent}18, transparent 70%)`,
+        transition: 'all 0.4s',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Circle indicator */}
+      <div style={{
+        width: 100, height: 100, borderRadius: '50%', flexShrink: 0,
+        border: `2px solid ${item.accent}44`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `radial-gradient(circle, ${item.accent}14, transparent 70%)`,
+        position: 'relative',
+      }}>
+        <svg width={100} height={100} style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)' }}>
+          <circle cx={50} cy={50} r={46} fill="none" stroke={`${item.accent}22`} strokeWidth={3} />
+          <circle cx={50} cy={50} r={46} fill="none" stroke={item.accent} strokeWidth={3}
+            strokeDasharray={`${(idx + 1) / items.length * 289} 289`}
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 0.6s ease' }}
+          />
+        </svg>
+        <div style={{ textAlign: 'center', zIndex: 1 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, color: item.accent,
+            letterSpacing: '0.8px', textTransform: 'uppercase',
+            opacity: 0.7,
+          }}>{idx + 1}/{items.length}</div>
+        </div>
+      </div>
+
+      {/* Text */}
+      <div style={{ flex: 1, opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)', transition: 'opacity 0.3s, transform 0.3s' }}>
+        <div style={{ fontSize: 52, fontWeight: 800, letterSpacing: '-2.5px', color: 'var(--text-1)', lineHeight: 1, marginBottom: 8 }}>
+          {item.value}
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-1)', marginBottom: 4 }}>{item.label}</div>
+        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{item.sub}</div>
+      </div>
+
+      {/* Dots */}
+      <div style={{ display: 'flex', gap: 6, alignSelf: 'flex-end', paddingBottom: 4 }}>
+        {items.map((_, i) => (
+          <div key={i} onClick={() => { setIdx(i); setVisible(true) }} style={{
+            width: i === idx ? 20 : 6, height: 6, borderRadius: 3,
+            background: i === idx ? item.accent : 'var(--border-2)',
+            transition: 'all 0.3s', cursor: 'pointer',
+          }} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -78,26 +150,19 @@ function StatCard({ number, label, sub, icon, accent = '#4F7FFF' }) {
 // --- HORIZONTAL BAR CHART ---
 function HBarChart({ data }) {
   const max = Math.max(...data.map(d => d.value), 1)
-  const [hovered, setHovered] = useState(null)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {data.map((d, i) => (
-        <div key={i}
-          onMouseEnter={() => setHovered(i)}
-          onMouseLeave={() => setHovered(null)}
-          style={{ cursor: 'default' }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 12, color: hovered === i ? 'var(--text-1)' : 'var(--text-2)', fontWeight: hovered === i ? 600 : 400, transition: 'all 0.15s' }}>{d.name}</span>
+        <div key={i}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-1)', fontWeight: 500 }}>{d.name}</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: d.color }}>{d.value}</span>
           </div>
-          <div style={{ background: '#F1F1EE', borderRadius: 6, height: 10, overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface-3)', borderRadius: 6, height: 8, overflow: 'hidden' }}>
             <div style={{
               width: `${(d.value / max) * 100}%`,
-              background: hovered === i ? d.color : `${d.color}CC`,
+              background: d.color,
               height: '100%', borderRadius: 6,
-              transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-              boxShadow: hovered === i ? `0 2px 8px ${d.color}66` : 'none',
             }} />
           </div>
         </div>
@@ -106,23 +171,23 @@ function HBarChart({ data }) {
   )
 }
 
-// --- BIG DONUT CHART ---
+// --- STANCE DONUT (sleek, no white outlines) ---
 function BigDonut({ data, total }) {
   const [hovered, setHovered] = useState(null)
-  const size = 240
+  const size = 220
   const cx = size / 2, cy = size / 2
-  const r = 100, innerR = 62
+  const r = 88, innerR = 58
   let cumulative = 0
 
   const segments = data.map((d, idx) => {
     const pct = d.value / total
-    const gap = 0.012
+    const gap = 0.008
     const startAngle = cumulative * 2 * Math.PI - Math.PI / 2 + gap
     cumulative += pct
     const endAngle = cumulative * 2 * Math.PI - Math.PI / 2 - gap
     const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0
     const isHovered = hovered === idx
-    const rr = isHovered ? r + 6 : r
+    const rr = isHovered ? r + 7 : r
     const x1 = cx + rr * Math.cos(startAngle), y1 = cy + rr * Math.sin(startAngle)
     const x2 = cx + rr * Math.cos(endAngle),   y2 = cy + rr * Math.sin(endAngle)
     const ix1 = cx + innerR * Math.cos(endAngle),   iy1 = cy + innerR * Math.sin(endAngle)
@@ -134,34 +199,40 @@ function BigDonut({ data, total }) {
   const hoveredSeg = hovered !== null ? segments[hovered] : null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <svg width={size} height={size} style={{ overflow: 'visible' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+      <svg width={size} height={size} style={{ overflow: 'visible', flexShrink: 0 }}>
+        <defs>
           {segments.map((s, i) => (
-            <path key={i} d={s.path} fill={s.bar}
-              stroke="white" strokeWidth={3}
-              style={{ cursor: 'pointer', transition: 'all 0.2s', filter: hovered === i ? `drop-shadow(0 4px 8px ${s.bar}66)` : 'none' }}
-              onMouseEnter={() => setHovered(i)}
-              onMouseLeave={() => setHovered(null)}
-            />
+            <radialGradient key={i} id={`grad${i}`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={s.bar} stopOpacity="1"/>
+              <stop offset="100%" stopColor={s.bar} stopOpacity="0.7"/>
+            </radialGradient>
           ))}
-          {hoveredSeg ? (
-            <>
-              <text x={cx} y={cy - 14} textAnchor="middle" fontSize={32} fontWeight={800} fill="var(--text-1)">{hoveredSeg.value}</text>
-              <text x={cx} y={cy + 10} textAnchor="middle" fontSize={12} fontWeight={600} fill={hoveredSeg.bar}>{hoveredSeg.name}</text>
-              <text x={cx} y={cy + 26} textAnchor="middle" fontSize={11} fill="var(--text-3)">{Math.round(hoveredSeg.pct * 100)}%</text>
-            </>
-          ) : (
-            <>
-              <text x={cx} y={cy - 10} textAnchor="middle" fontSize={36} fontWeight={800} fill="var(--text-1)">{total}</text>
-              <text x={cx} y={cy + 12} textAnchor="middle" fontSize={10} fontWeight={700} fill="var(--text-3)" letterSpacing="1">SPEECHES</text>
-            </>
-          )}
-        </svg>
-      </div>
+        </defs>
+        {segments.map((s, i) => (
+          <path key={i} d={s.path}
+            fill={`url(#grad${i})`}
+            stroke="none"
+            style={{ cursor: 'pointer', transition: 'all 0.2s', filter: hovered === i ? `drop-shadow(0 0 10px ${s.bar}88)` : 'none' }}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+          />
+        ))}
+        {hoveredSeg ? (
+          <>
+            <text x={cx} y={cy - 16} textAnchor="middle" fontSize={30} fontWeight={800} fill="var(--text-1)">{hoveredSeg.value}</text>
+            <text x={cx} y={cy + 8} textAnchor="middle" fontSize={12} fontWeight={600} fill={hoveredSeg.bar}>{hoveredSeg.name}</text>
+            <text x={cx} y={cy + 26} textAnchor="middle" fontSize={12} fill="var(--text-2)">{Math.round(hoveredSeg.pct * 100)}%</text>
+          </>
+        ) : (
+          <>
+            <text x={cx} y={cy - 8} textAnchor="middle" fontSize={34} fontWeight={800} fill="var(--text-1)">{total}</text>
+            <text x={cx} y={cy + 14} textAnchor="middle" fontSize={10} fontWeight={700} fill="var(--text-3)" letterSpacing="1">TOTAL</text>
+          </>
+        )}
+      </svg>
 
-      {/* Legend */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {segments.map((s, i) => (
           <div key={i}
             onMouseEnter={() => setHovered(i)}
@@ -170,13 +241,14 @@ function BigDonut({ data, total }) {
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
               background: hovered === i ? s.bg : 'transparent',
-              transition: 'background 0.15s',
+              border: `1px solid ${hovered === i ? s.bar + '44' : 'transparent'}`,
+              transition: 'all 0.15s',
             }}
           >
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: s.bar, flexShrink: 0 }} />
-            <span style={{ flex: 1, fontSize: 13, fontWeight: hovered === i ? 600 : 400, color: hovered === i ? s.color : 'var(--text-2)', transition: 'all 0.15s' }}>{s.name}</span>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: s.bar, flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13, fontWeight: hovered === i ? 600 : 400, color: hovered === i ? 'var(--text-1)' : 'var(--text-2)', transition: 'all 0.15s' }}>{s.name}</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: s.bar }}>{s.value}</span>
-            <span style={{ fontSize: 11, color: 'var(--text-3)', width: 32, textAlign: 'right' }}>{Math.round(s.pct * 100)}%</span>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', width: 34, textAlign: 'right' }}>{Math.round(s.pct * 100)}%</span>
           </div>
         ))}
       </div>
@@ -184,29 +256,31 @@ function BigDonut({ data, total }) {
   )
 }
 
-// --- PARTY BARS ---
+// --- PARTY BARS (visible by default) ---
 function PartyBars({ data }) {
   const max = Math.max(...data.map(d => d.value), 1)
   const [hovered, setHovered] = useState(null)
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 140, paddingTop: 24 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 150, paddingTop: 24 }}>
       {data.map((d, i) => {
-        const h = Math.max((d.value / max) * 110, 4)
+        const h = Math.max((d.value / max) * 120, 4)
         const isH = hovered === i
         return (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, height: '100%', justifyContent: 'flex-end' }}
+          <div key={i}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
           >
-            <span style={{ fontSize: 11, fontWeight: 700, color: isH ? d.color : 'var(--text-3)', transition: 'color 0.15s' }}>{d.value}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: isH ? d.color : 'var(--text-1)', transition: 'color 0.15s' }}>{d.value}</span>
             <div style={{
               width: '100%', maxWidth: 38,
-              background: isH ? d.color : `${d.color}66`,
-              borderRadius: '6px 6px 0 0', height: `${h}px`,
+              background: isH ? d.color : `${d.color}CC`,
+              borderRadius: '6px 6px 0 0',
+              height: `${h}px`,
               transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
-              boxShadow: isH ? `0 -6px 16px ${d.color}55` : 'none',
+              boxShadow: isH ? `0 -6px 16px ${d.color}66` : 'none',
               cursor: 'default',
             }} />
-            <span style={{ fontSize: 9, color: 'var(--text-3)', textAlign: 'center', maxWidth: 50, lineHeight: 1.2 }}>{d.name}</span>
+            <span style={{ fontSize: 9, color: isH ? 'var(--text-2)' : 'var(--text-3)', textAlign: 'center', maxWidth: 50, lineHeight: 1.2, transition: 'color 0.15s' }}>{d.name}</span>
           </div>
         )
       })}
@@ -217,7 +291,7 @@ function PartyBars({ data }) {
 // --- MINI TIMELINE ---
 function MiniTimeline({ data }) {
   if (!data.length) return null
-  const w = 280, h = 70, pad = { t: 12, r: 12, b: 22, l: 12 }
+  const w = 280, h = 80, pad = { t: 16, r: 12, b: 24, l: 12 }
   const max = Math.max(...data.map(d => d.value), 1)
   const xs = (i) => pad.l + (i / Math.max(data.length - 1, 1)) * (w - pad.l - pad.r)
   const ys = (v) => pad.t + (1 - v / max) * (h - pad.t - pad.b)
@@ -228,20 +302,20 @@ function MiniTimeline({ data }) {
     <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
       <defs>
         <linearGradient id="tGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1B4FD8" stopOpacity="0.15"/>
-          <stop offset="100%" stopColor="#1B4FD8" stopOpacity="0"/>
+          <stop offset="0%" stopColor="#4F7FFF" stopOpacity="0.2"/>
+          <stop offset="100%" stopColor="#4F7FFF" stopOpacity="0"/>
         </linearGradient>
       </defs>
       <polygon points={`${xs(0)},${ys(0)} ${pts} ${xs(data.length-1)},${ys(0)}`} fill="url(#tGrad)" />
-      <polyline points={pts} fill="none" stroke="#1B4FD8" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>
+      <polyline points={pts} fill="none" stroke="#4F7FFF" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"/>
       {data.map((d, i) => (
         <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: 'default' }}>
-          <circle cx={xs(i)} cy={ys(d.value)} r={hovered === i ? 6 : 4} fill="#1B4FD8" stroke="white" strokeWidth={2} style={{ transition: 'r 0.15s' }}/>
-          <text x={xs(i)} y={h - 4} textAnchor="middle" fontSize={10} fontWeight={600} fill="var(--text-3)">{d.label}</text>
+          <circle cx={xs(i)} cy={ys(d.value)} r={hovered === i ? 6 : 4} fill="#4F7FFF" stroke="#0A0A0F" strokeWidth={2} style={{ transition: 'r 0.15s' }}/>
+          <text x={xs(i)} y={h - 4} textAnchor="middle" fontSize={11} fontWeight={600} fill="var(--text-2)">{d.label}</text>
           {hovered === i && (
             <g>
-              <rect x={xs(i) - 22} y={ys(d.value) - 26} width={44} height={20} rx={4} fill="#1B4FD8"/>
-              <text x={xs(i)} y={ys(d.value) - 12} textAnchor="middle" fontSize={11} fontWeight={700} fill="white">{d.value}</text>
+              <rect x={xs(i) - 22} y={ys(d.value) - 28} width={44} height={20} rx={5} fill="#4F7FFF"/>
+              <text x={xs(i)} y={ys(d.value) - 14} textAnchor="middle" fontSize={11} fontWeight={700} fill="white">{d.value}</text>
             </g>
           )}
         </g>
@@ -255,8 +329,8 @@ function Tab({ id, label, active, onClick }) {
     <button onClick={() => onClick(id)} style={{
       padding: '10px 22px', border: 'none', background: 'none', cursor: 'pointer',
       fontFamily: 'inherit', fontSize: 13, fontWeight: active ? 700 : 400,
-      color: active ? 'var(--accent)' : 'var(--text-2)',
-      borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+      color: active ? 'var(--text-1)' : 'var(--text-3)',
+      borderBottom: active ? '2px solid #4F7FFF' : '2px solid transparent',
       marginBottom: -1, transition: 'all 0.15s',
     }}>{label}</button>
   )
@@ -281,8 +355,10 @@ export default function Landscape() {
       bySpeaker[n].count++
       if (s.classification?.stance) bySpeaker[n].stances.push(s.classification.stance)
     })
-    return { topics, stances, parties, existential, byMonth, bySpeaker }
+    return { topics, stances, parties, existential, byMonth, bySpeaker, total: speeches.length, proSafety: stances['pro_safety'] || 0, speakers: Object.keys(bySpeaker).length }
   }, [speeches])
+
+  const proSafetyPct = Math.round((stats.proSafety / speeches.length) * 100)
 
   const topicData = Object.entries(stats.topics)
     .filter(([k]) => k !== 'not_relevant')
@@ -290,7 +366,7 @@ export default function Landscape() {
     .sort((a, b) => b.value - a.value)
 
   const stanceData = Object.entries(stats.stances)
-    .map(([k, v]) => ({ name: STANCE_CONFIG[k]?.label || k, value: v, bar: STANCE_CONFIG[k]?.bar || '#ccc', bg: STANCE_CONFIG[k]?.bg || '#f9f9f9', color: STANCE_CONFIG[k]?.color || '#666' }))
+    .map(([k, v]) => ({ name: STANCE_CONFIG[k]?.label || k, value: v, bar: STANCE_CONFIG[k]?.bar || '#ccc', bg: STANCE_CONFIG[k]?.bg || '#111', color: STANCE_CONFIG[k]?.color || '#666' }))
     .sort((a, b) => b.value - a.value)
 
   const partyData = Object.entries(stats.parties)
@@ -316,39 +392,20 @@ export default function Landscape() {
       .slice(0, 30)
   , [speeches, feedFilter])
 
-  const proSafetyPct = Math.round(((stats.stances['pro_safety'] || 0) / speeches.length) * 100)
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
-        <div>
-          <div className="label" style={{ marginBottom: 10 }}>January – March 2026</div>
-          <h1 className="page-title">The Landscape</h1>
-          <p className="page-subtitle" style={{ maxWidth: 480 }}>
-            Every AI-related speech in UK Parliament, classified by topic and stance using GPT-4o.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 12, padding: '12px 18px', textAlign: 'center' }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#34D399', letterSpacing: '-1px' }}>{proSafetyPct}%</div>
-            <div style={{ fontSize: 10, color: '#34D399', fontWeight: 700, opacity: 0.7, letterSpacing: '0.5px' }}>PRO-SAFETY</div>
-          </div>
-          <div style={{ background: 'rgba(79,127,255,0.1)', border: '1px solid rgba(79,127,255,0.3)', borderRadius: 12, padding: '12px 18px', textAlign: 'center' }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#4F7FFF', letterSpacing: '-1px' }}>{speeches.length}</div>
-            <div style={{ fontSize: 10, color: '#4F7FFF', fontWeight: 700, opacity: 0.7, letterSpacing: '0.5px' }}>AI SPEECHES</div>
-          </div>
-        </div>
+      <div>
+        <div className="label" style={{ marginBottom: 10 }}>January – March 2026</div>
+        <h1 className="page-title">The Landscape</h1>
+        <p className="page-subtitle" style={{ maxWidth: 480 }}>
+          Every AI-related speech in UK Parliament, classified by topic and stance using GPT-4o.
+        </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid-4">
-        <StatCard number={speeches.length} label="AI-relevant speeches" sub="Jan–Mar 2026" icon="🏛️" accent="#1B4FD8" />
-        <StatCard number={stats.stances['pro_safety'] || 0} label="Pro-safety voices" sub={`${proSafetyPct}% of total`} icon="🛡️" accent="#22C55E" />
-        <StatCard number={stats.existential} label="Mention existential risk" sub="Frontier-aware MPs" icon="⚠️" accent="#EF4444" />
-        <StatCard number={Object.keys(stats.bySpeaker).length} label="Unique speakers" sub="Across both houses" icon="👥" accent="#8B5CF6" />
-      </div>
+      {/* Rotating stat card */}
+      <RotatingStatCard stats={stats} proSafetyPct={proSafetyPct} />
 
       {/* Tabs */}
       <div style={{ borderBottom: '1px solid var(--border)' }}>
@@ -360,26 +417,23 @@ export default function Landscape() {
       {/* OVERVIEW */}
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Row 1: Topics (left) + Stance Donut (right, bigger) */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 16 }}>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px', boxShadow: 'var(--shadow)' }}>
-              <div className="section-title">What Parliament is talking about</div>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px' }}>
+              <div className="section-title">What Parliament is saying about AI</div>
               <HBarChart data={topicData} />
             </div>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px', boxShadow: 'var(--shadow)' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px' }}>
               <div className="section-title">Stance Distribution</div>
               <BigDonut data={stanceData} total={speeches.length} />
             </div>
           </div>
 
-          {/* Row 2: Party bars (left, bigger) + Mini timeline (right, smaller) */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px', boxShadow: 'var(--shadow)' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px' }}>
               <div className="section-title">Engagement by Party</div>
               <PartyBars data={partyData} />
             </div>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px', boxShadow: 'var(--shadow)' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px 24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div className="section-title" style={{ marginBottom: 0 }}>Monthly Activity</div>
                 <span style={{ fontSize: 10, color: 'var(--text-3)', background: 'var(--surface-2)', borderRadius: 5, padding: '2px 7px', fontWeight: 600 }}>2026</span>
@@ -387,30 +441,12 @@ export default function Landscape() {
               <MiniTimeline data={timelineData} />
             </div>
           </div>
-
-          {/* Insight banner */}
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(79,127,255,0.08), rgba(52,211,153,0.08))',
-            border: '1px solid rgba(79,127,255,0.2)', borderRadius: 12, padding: '16px 20px',
-            display: 'flex', alignItems: 'center', gap: 14,
-          }}>
-            <div style={{ fontSize: 22 }}>💡</div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>Key Insight</div>
-              <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                Parliament is <strong>{proSafetyPct}% pro-safety</strong> on AI in 2026 — yet only{' '}
-                <strong>{stats.existential} MPs</strong> have explicitly raised existential risk.
-                Only <strong>{stats.stances['pro_acceleration'] || 0} speeches</strong> are pro-acceleration.
-                The safety consensus exists; the frontier awareness gap remains.
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
       {/* VOICES */}
       {activeTab === 'voices' && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
           <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="section-title" style={{ marginBottom: 0 }}>Most Active AI Speakers in 2026</div>
             <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Top 15 by speech count</span>
@@ -425,16 +461,15 @@ export default function Landscape() {
                 <div key={name} style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0',
                   borderBottom: i < topSpeakers.length - 1 ? '1px solid var(--border)' : 'none',
-                  transition: 'background 0.15s', cursor: 'default',
                 }}>
-                  <div style={{ width: 24, textAlign: 'right', fontSize: 13, fontWeight: 700, color: i < 3 ? 'var(--accent)' : 'var(--text-3)' }}>{i + 1}</div>
+                  <div style={{ width: 24, textAlign: 'right', fontSize: 13, fontWeight: 700, color: i < 3 ? '#4F7FFF' : 'var(--text-3)' }}>{i + 1}</div>
                   <div style={{ width: 4, height: 34, borderRadius: 2, background: partyColor, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{name}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-1)' }}>{name}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{data.party}</div>
                   </div>
-                  <div style={{ width: 120, background: 'var(--bg)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                    <div style={{ width: `${(data.count / maxCount) * 100}%`, background: partyColor, height: '100%', borderRadius: 4, opacity: 0.85 }} />
+                  <div style={{ width: 120, background: 'var(--surface-3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                    <div style={{ width: `${(data.count / maxCount) * 100}%`, background: partyColor, height: '100%', borderRadius: 4 }} />
                   </div>
                   <div style={{ background: sc?.bg, color: sc?.color, borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
                     {sc?.label || stance}
@@ -459,12 +494,11 @@ export default function Landscape() {
               return (
                 <button key={f} onClick={() => setFeedFilter(f)} style={{
                   padding: '7px 16px', borderRadius: 8,
-                  border: `1px solid ${isActive ? 'transparent' : 'var(--border)'}`,
-                  background: isActive ? (cfg?.bar || 'var(--accent)') : 'white',
-                  color: isActive ? 'white' : 'var(--text-2)',
+                  border: `1px solid ${isActive ? (cfg?.bar || '#4F7FFF') + '66' : 'var(--border)'}`,
+                  background: isActive ? (cfg?.bg || 'rgba(79,127,255,0.12)') : 'var(--surface)',
+                  color: isActive ? (cfg?.color || '#4F7FFF') : 'var(--text-2)',
                   fontSize: 12, fontWeight: isActive ? 700 : 500, cursor: 'pointer',
                   transition: 'all 0.15s', fontFamily: 'inherit',
-                  boxShadow: isActive ? `0 2px 8px ${cfg?.bar || '#1B4FD8'}55` : 'none',
                 }}>
                   {f === 'all' ? 'All speeches' : cfg?.label || f}
                 </button>
@@ -478,22 +512,21 @@ export default function Landscape() {
             return (
               <div key={i} style={{
                 background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
-                padding: '18px 20px', display: 'flex', gap: 16,
-                transition: 'all 0.15s', cursor: 'default',
+                padding: '18px 20px', display: 'flex', gap: 16, transition: 'all 0.15s',
               }}
-                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)'; e.currentTarget.style.borderColor = 'var(--border-2)' }}
-                onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none' }}
               >
-                <div style={{ width: 4, borderRadius: 4, background: partyColor, flexShrink: 0, alignSelf: 'stretch', minHeight: 40 }} />
+                <div style={{ width: 3, borderRadius: 4, background: partyColor, flexShrink: 0, alignSelf: 'stretch', minHeight: 40 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontWeight: 700, fontSize: 14 }}>{s.member_name}</span>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)' }}>{s.member_name}</span>
                       <span style={{ color: 'var(--text-3)', fontSize: 12 }}>{s.party}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {sc && <span style={{ background: sc.bg, color: sc.color, borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 700 }}>{sc.label}</span>}
-                      <span style={{ fontSize: 11, color: 'var(--text-3)', background: 'var(--bg)', borderRadius: 5, padding: '2px 8px' }}>{s.date}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', background: 'var(--surface-2)', borderRadius: 5, padding: '2px 8px' }}>{s.date}</span>
                     </div>
                   </div>
                   {s.classification?.key_quote && (
